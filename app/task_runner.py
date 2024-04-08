@@ -24,8 +24,8 @@ class ThreadPool:
             self.num_of_threads = os.cpu_count()
 
         # Creating and starting the threads
-        for i in range(self.num_of_threads):
-            worker = TaskRunner()
+        for _ in range(self.num_of_threads):
+            worker = TaskRunner(self.job_queue)
             worker.start()
 
 
@@ -33,7 +33,6 @@ class TaskRunner(Thread):
     def __init__(self, job_queue):
         # TODO: init necessary data structures
         Thread.__init__(self)
-
         self.job_queue = job_queue
 
     def run(self):
