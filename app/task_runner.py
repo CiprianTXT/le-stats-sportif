@@ -14,12 +14,16 @@ class ThreadPool:
         #   * create more threads than the hardware concurrency allows
         #   * recreate threads for each task
 
+        # Creating the results folder if not present
+        if not os.path.exists("./results"):
+            os.mkdir("./results")
+
         # Creating an empty job queue
         self.job_queue = Queue()
 
         # Checking the number of threads to create
         if 'TP_NUM_OF_THREADS' in os.environ:
-            self.num_of_threads = os.environ.get('TP_NUM_OF_THREADS')
+            self.num_of_threads = os.environ.get("TP_NUM_OF_THREADS")
         else:
             self.num_of_threads = os.cpu_count()
 
