@@ -4,26 +4,27 @@ from flask import request, jsonify
 import os
 import json
 
-# Example endpoint definition
-@webserver.route('/api/post_endpoint', methods=['POST'])
-def post_endpoint():
-    if request.method == 'POST':
-        # Assuming the request contains JSON data
-        data = request.json
-        print(f"got data in post {data}")
+@webserver.route('/api/num_jobs', methods=['GET'])
+def num_jobs_request():
+    finished_jobs = len(list(os.walk("./results"))[0][2])
+    return f"{webserver.job_counter - 1 - finished_jobs}\n"
 
-        # Process the received data
-        # For demonstration purposes, just echoing back the received data
-        response = {"message": "Received data successfully", "data": data}
+@webserver.route('/api/jobs', methods=['GET'])
+def jobs_request():
+    jobs = []
+    for current_id in range(1, webserver.job_counter):
+        if os.path.exists(f"./results/job_id_{current_id}"):
+            jobs.append({f"job_id_{current_id}": "done"})
+        else:
+            jobs.append({f"job_id_{current_id}": "running"})
 
-        # Sending back a JSON response
-        return jsonify(response)
-    else:
-        # Method Not Allowed
-        return jsonify({"error": "Method not allowed"}), 405
+    return jsonify({
+        "status": "done",
+        "data": jobs
+    })
 
 @webserver.route('/api/get_results/<job_id>', methods=['GET'])
-def get_response(job_id):
+def get_results_request(job_id):
     print(f"JobID is {job_id}")
 
     # Check if job_id is valid
@@ -138,6 +139,13 @@ def state_mean_by_category_request():
     # Return associated job_id
 
     return jsonify({"status": "NotImplemented"})
+
+@webserver.route('/api/graceful_shutdown', methods=['GET'])
+def graceful_shutdown_request():
+    if webserver.tasks_runner.is_running():
+        webserver.tasks_runner.shutdown()
+
+    return jsonify({"status": "Shutting down"})
 
 # You can check localhost in your browser to see what this displays
 @webserver.route('/')
