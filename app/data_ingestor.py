@@ -4,7 +4,7 @@ from pandas import read_csv
 
 class DataIngestor:
     def __init__(self, csv_path: str):
-        # TODO: Read csv from csv_path
+        # Read csv from csv_path
         self.table = read_csv(csv_path)
 
         self.questions_best_is_min = [
