@@ -25,25 +25,25 @@ def post_endpoint():
 @webserver.route('/api/get_results/<job_id>', methods=['GET'])
 def get_response(job_id):
     print(f"JobID is {job_id}")
-    # TODO
+
     # Check if job_id is valid
-    if job_id > webserver.job_counter:
+    if int(job_id) < 1 or int(job_id) > webserver.job_counter:
         return jsonify({
             "status": "error",
             "reason": "Invalid job_id"
         })
-    else:
-
 
     # Check if job_id is done and return the result
-    #    res = res_for(job_id)
-    #    return jsonify({
-    #        "status": "done",
-    #        "data": res
-    #    })
-
+    try:
+        with open(f"./results/job_id_{job_id}.json") as file:
+            result = json.load(file)
+        return jsonify({
+            "status": "done",
+            "data": result
+        })
     # If not, return running status
-    # return jsonify({'status': 'NotImplemented'})
+    except FileNotFoundError:
+        return jsonify({"status": "running"})
 
 @webserver.route('/api/states_mean', methods=['POST'])
 def states_mean_request():
