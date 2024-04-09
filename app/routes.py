@@ -28,7 +28,7 @@ def get_results_request(job_id):
     print(f"JobID is {job_id}")
 
     # Check if job_id is valid
-    if int(job_id) < 1 or int(job_id) > webserver.job_counter:
+    if not int(job_id) in range(1, webserver.job_counter):
         return jsonify({
             "status": "error",
             "reason": "Invalid job_id"
