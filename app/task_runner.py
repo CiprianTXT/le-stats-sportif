@@ -21,6 +21,9 @@ class ThreadPool:
         # Creating an empty job queue
         self.job_queue = Queue()
 
+        # Flag for graceful shutdown
+        self.shutdown_notification = []
+
         # Checking the number of threads to create
         if 'TP_NUM_OF_THREADS' in os.environ:
             self.num_of_threads = os.environ.get("TP_NUM_OF_THREADS")
@@ -29,18 +32,24 @@ class ThreadPool:
 
         # Creating and starting the threads
         for _ in range(self.num_of_threads):
-            worker = TaskRunner(self.job_queue)
+            worker = TaskRunner(self.job_queue, self.shutdown_notification)
             worker.start()
 
+    def is_running(self):
+        return not self.shutdown_notification
+
+    def shutdown(self):
+        self.shutdown_notification.append(True)
 
 class TaskRunner(Thread):
-    def __init__(self, job_queue):
+    def __init__(self, job_queue, shutdown_notification):
         # TODO: init necessary data structures
         Thread.__init__(self)
         self.job_queue = job_queue
+        self.shutdown_notification = shutdown_notification
 
     def run(self):
-        while True:
+        while not self.shutdown_notification or not self.job_queue.empty():
             # TODO
             # Get pending job
             # Execute the job and save the result to disk
