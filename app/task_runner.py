@@ -1,5 +1,5 @@
 from queue import Queue
-from threading import Thread, Event
+from threading import Thread, Condition
 import time
 import pandas
 import json
@@ -24,9 +24,12 @@ class ThreadPool:
         # Flag for graceful shutdown
         self.shutdown_notification = []
 
+        # Creating a Condition object
+        self.condition = Condition()
+
         # Creating and starting the threads
         for _ in range(num_of_threads):
-            worker = TaskRunner(self.job_queue, self.job_status, self.shutdown_notification, table)
+            worker = TaskRunner(self.job_queue, self.job_status, self.shutdown_notification, self.condition, table)
             worker.start()
 
     def is_running(self):
@@ -36,12 +39,13 @@ class ThreadPool:
         self.shutdown_notification.append(True)
 
 class TaskRunner(Thread):
-    def __init__(self, job_queue, job_status, shutdown_notification, table):
-        # TODO: init necessary data structures
+    def __init__(self, job_queue, job_status, shutdown_notification, condition, table):
+        # Initializing necessary data structures
         Thread.__init__(self)
         self.job_queue = job_queue
         self.job_status = job_status
         self.shutdown_notification = shutdown_notification
+        self.condition = condition
         self.table = table
 
     def exec_states_mean(self, question, job_id):
@@ -63,15 +67,18 @@ class TaskRunner(Thread):
 
     def run(self):
         # Repeat until graceful_shutdown and empty queue
-        while not (self.shutdown_notification and self.job_queue.empty()):
-            # Get pending job, if available
-            if not self.job_queue.empty():
-                job = self.job_queue.get()
+        with self.condition:
+            while not (self.shutdown_notification and self.job_queue.empty()):
+                # Put all workers on hold as long as there are no jobs
+                if self.job_queue.empty():
+                    self.condition.wait()
+                else:
+                    # Get pending job
+                    job = self.job_queue.get()
 
-                # Execute the job and save the result to disk
-                self.job_status[job[2]] = "running"
-                request = job[0]
-                if request == "states_mean":
-                    self.exec_states_mean(job[1], job[2])
+                    # Execute the job and save the result to disk
+                    request = job[0]
+                    if request == "states_mean":
+                        self.exec_states_mean(job[1], job[2])
 
         print(f"{self.name} shut down")
