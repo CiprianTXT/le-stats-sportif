@@ -51,7 +51,7 @@ class TaskRunner(Thread):
     def exec_states_mean(self, question, job_id):
         states_avg = []
 
-        # Filter table by value in question column and group by state afterwards
+        # Filter table by value in Question column and group by state afterwards
         filtered_table = self.table.loc[self.table["Question"] == question]
         for state, table in filtered_table.groupby("LocationDesc"):
             states_avg.append((state, table["Data_Value"].mean()))
@@ -63,6 +63,24 @@ class TaskRunner(Thread):
         result = json.dumps(states_avg, sort_keys=False)
         with open(f"./results/job_id_{job_id}.json", "w") as output_file:
             output_file.write(result)
+
+        # Mark job as done
+        self.job_status[job_id] = "done"
+
+    def exec_state_mean(self, question, state, job_id):
+        # Filter table by value in Question and LocationDesc columns
+        filtered_table = self.table.loc[
+            (self.table["Question"] == question) & (self.table["LocationDesc"] == state)
+        ]
+
+        # Save the result on disk
+        result = json.dumps({
+            state: filtered_table["Data_Value"].mean()
+        })
+        with open(f"./results/job_id_{job_id}.json", "w") as output_file:
+            output_file.write(result)
+
+        # Mark job as done
         self.job_status[job_id] = "done"
 
     def run(self):
@@ -80,5 +98,7 @@ class TaskRunner(Thread):
                     request = job[0]
                     if request == "states_mean":
                         self.exec_states_mean(job[1], job[2])
+                    elif request == "state_mean":
+                        self.exec_state_mean(job[1], job[2], job[3])
 
         print(f"{self.name} shut down")
