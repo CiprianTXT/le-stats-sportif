@@ -6,17 +6,18 @@ import json
 
 @webserver.route('/api/num_jobs', methods=['GET'])
 def num_jobs_request():
-    finished_jobs = len(list(os.walk("./results"))[0][2])
-    return f"{webserver.job_counter - 1 - finished_jobs}\n"
+    job_status_values = list(webserver.tasks_runner.job_status.values())
+    return jsonify({
+        "status": "done",
+        "data": len(list(filter(lambda value: value == "running", job_status_values)))
+    })
 
 @webserver.route('/api/jobs', methods=['GET'])
 def jobs_request():
     jobs = []
     for current_id in range(1, webserver.job_counter):
-        if webserver.tasks_runner.job_status[current_id] == "done":
-            jobs.append({f"job_id_{current_id}": "done"})
-        else:
-            jobs.append({f"job_id_{current_id}": "running"})
+        current_status = webserver.tasks_runner.job_status[current_id]
+        jobs.append({f"job_id_{current_id}": current_status})
 
     return jsonify({
         "status": "done",
@@ -58,6 +59,11 @@ def states_mean_request():
         job_id = webserver.job_counter
         job = ["states_mean", data["question"], job_id]
         webserver.tasks_runner.job_queue.put(job)
+        webserver.tasks_runner.job_status[job_id] = "running"
+
+        # Notify workers about incoming job
+        with webserver.tasks_runner.condition:
+            webserver.tasks_runner.condition.notify()
 
         # Increment job_id counter
         webserver.job_counter += 1
@@ -155,6 +161,9 @@ def state_mean_by_category_request():
 def graceful_shutdown_request():
     if webserver.tasks_runner.is_running():
         webserver.tasks_runner.shutdown()
+        # Notify workers about shutdown event
+        with webserver.tasks_runner.condition:
+            webserver.tasks_runner.condition.notify_all()
 
     return jsonify({"status": "Shutting down"})
 
