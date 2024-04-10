@@ -92,6 +92,51 @@ class TaskRunner(Thread):
         # Mark job as done
         self.job_status[job_id] = "done"
 
+    def exec_best5(self, question, job_id):
+        states_best5 = []
+
+        # Filter table by value in Question column and group by state afterwards
+        filtered_table = self.table.loc[self.table["Question"] == question]
+        for state, table in filtered_table.groupby("LocationDesc"):
+            states_best5.append((state, table["Data_Value"].mean()))
+
+        # Sort data by value depending on the question
+        if question in self.questions_best_is_min:
+            states_best5 = dict(sorted(states_best5, key=lambda state: state[1])[:5])
+        else:
+            states_best5 = dict(sorted(states_best5, key=lambda state: state[1], reverse=True)[:5])
+
+        # Save the result on disk
+        result = json.dumps(states_best5, sort_keys=False)
+        with open(f"./results/job_id_{job_id}.json", "w", encoding="UTF-8") as output_file:
+            output_file.write(result)
+
+        # Mark job as done
+        self.job_status[job_id] = "done"
+
+    def exec_worst5(self, question, job_id):
+        states_worst5 = []
+
+        # Filter table by value in Question column and group by state afterwards
+        filtered_table = self.table.loc[self.table["Question"] == question]
+        for state, table in filtered_table.groupby("LocationDesc"):
+            states_worst5.append((state, table["Data_Value"].mean()))
+
+        # Sort data by value depending on the question
+        if question in self.questions_best_is_min:
+            states_worst5 = dict(sorted(states_worst5, key=lambda state: state[1], reverse=True)[:5])
+        else:
+            states_worst5 = dict(sorted(states_worst5, key=lambda state: state[1])[:5])
+
+        # Save the result on disk
+        result = json.dumps(states_worst5, sort_keys=False)
+        with open(f"./results/job_id_{job_id}.json", "w", encoding="UTF-8") as output_file:
+            output_file.write(result)
+
+        # Mark job as done
+        self.job_status[job_id] = "done"
+
+
     def run(self):
         # Repeat until graceful_shutdown and empty queue
         with self.condition:
@@ -109,5 +154,9 @@ class TaskRunner(Thread):
                         self.exec_states_mean(job[1], job[2])
                     elif request == "state_mean":
                         self.exec_state_mean(job[1], job[2], job[3])
+                    elif request == "best5":
+                        self.exec_best5(job[1], job[2])
+                    elif request == "worst5":
+                        self.exec_worst5(job[1], job[2])
 
         print(f"{self.name} shut down")
