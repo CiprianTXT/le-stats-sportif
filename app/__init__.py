@@ -9,7 +9,7 @@ if not os.path.exists("./results"):
 
 # Checking the number of threads to create
 if 'TP_NUM_OF_THREADS' in os.environ:
-    num_of_threads = os.environ.get("TP_NUM_OF_THREADS")
+    num_of_threads = int(os.environ.get("TP_NUM_OF_THREADS"))
 else:
     num_of_threads = os.cpu_count()
 
