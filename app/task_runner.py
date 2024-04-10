@@ -1,10 +1,11 @@
 from queue import Queue
 from threading import Thread, Event
 import time
-import os
+import pandas
+import json
 
 class ThreadPool:
-    def __init__(self):
+    def __init__(self, num_of_threads, table):
         # You must implement a ThreadPool of TaskRunners
         # Your ThreadPool should check if an environment variable TP_NUM_OF_THREADS is defined
         # If the env var is defined, that is the number of threads to be used by the thread pool
@@ -14,25 +15,18 @@ class ThreadPool:
         #   * create more threads than the hardware concurrency allows
         #   * recreate threads for each task
 
-        # Creating the results folder if not present
-        if not os.path.exists("./results"):
-            os.mkdir("./results")
-
         # Creating an empty job queue
         self.job_queue = Queue()
+
+        # Creating an empty job status dictionary
+        self.job_status = {}
 
         # Flag for graceful shutdown
         self.shutdown_notification = []
 
-        # Checking the number of threads to create
-        if 'TP_NUM_OF_THREADS' in os.environ:
-            self.num_of_threads = os.environ.get("TP_NUM_OF_THREADS")
-        else:
-            self.num_of_threads = os.cpu_count()
-
         # Creating and starting the threads
-        for _ in range(self.num_of_threads):
-            worker = TaskRunner(self.job_queue, self.shutdown_notification)
+        for _ in range(num_of_threads):
+            worker = TaskRunner(self.job_queue, self.job_status, self.shutdown_notification, table)
             worker.start()
 
     def is_running(self):
@@ -42,16 +36,42 @@ class ThreadPool:
         self.shutdown_notification.append(True)
 
 class TaskRunner(Thread):
-    def __init__(self, job_queue, shutdown_notification):
+    def __init__(self, job_queue, job_status, shutdown_notification, table):
         # TODO: init necessary data structures
         Thread.__init__(self)
         self.job_queue = job_queue
+        self.job_status = job_status
         self.shutdown_notification = shutdown_notification
+        self.table = table
+
+    def exec_states_mean(self, question, job_id):
+        states_avg = []
+
+        # Filter table by value in question column and group by state afterwards
+        filtered_table = self.table.loc[self.table["Question"] == question]
+        for state, table in filtered_table.groupby("LocationDesc"):
+            states_avg.append((state, table["Data_Value"].mean()))
+
+        # Sort data by value
+        states_avg = dict(sorted(states_avg, key=lambda state: state[1]))
+
+        # Save the result on disk
+        result = json.dumps(states_avg, sort_keys=False)
+        with open(f"./results/job_id_{job_id}.json", "w") as output_file:
+            output_file.write(result)
+        self.job_status[job_id] = "done"
 
     def run(self):
-        while not self.shutdown_notification or not self.job_queue.empty():
-            # TODO
-            # Get pending job
-            # Execute the job and save the result to disk
-            # Repeat until graceful_shutdown
-            pass
+        # Repeat until graceful_shutdown and empty queue
+        while not (self.shutdown_notification and self.job_queue.empty()):
+            # Get pending job, if available
+            if not self.job_queue.empty():
+                job = self.job_queue.get()
+
+                # Execute the job and save the result to disk
+                self.job_status[job[2]] = "running"
+                request = job[0]
+                if request == "states_mean":
+                    self.exec_states_mean(job[1], job[2])
+
+        print(f"{self.name} shut down")
