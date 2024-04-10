@@ -16,7 +16,7 @@ else:
 webserver = Flask(__name__)
 webserver.data_ingestor = DataIngestor("./nutrition_activity_obesity_usa_subset.csv")
 
-webserver.tasks_runner = ThreadPool(num_of_threads, webserver.data_ingestor.table)
+webserver.tasks_runner = ThreadPool(num_of_threads, webserver.data_ingestor)
 
 webserver.job_counter = 1
 

@@ -1,5 +1,3 @@
-import os
-import json
 from pandas import read_csv
 
 class DataIngestor:
