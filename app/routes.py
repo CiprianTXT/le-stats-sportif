@@ -168,24 +168,60 @@ def worst5_request():
 
 @webserver.route('/api/global_mean', methods=['POST'])
 def global_mean_request():
-    # TODO
-    # Get request data
-    # Register job. Don't wait for task to finish
-    # Increment job_id counter
-    # Return associated job_id
+    if webserver.tasks_runner.is_running():
+        # Get request data
+        data = request.json
+        print(f"Got request {data}")
 
-    return jsonify({"status": "NotImplemented"})
+        # Register job. Don't wait for task to finish
+        job_id = webserver.job_counter
+        job = ["global_mean", data["question"], job_id]
+        webserver.tasks_runner.job_queue.put(job)
+        webserver.tasks_runner.job_status[job_id] = "running"
+
+        # Notify workers about incoming job
+        with webserver.tasks_runner.condition:
+            webserver.tasks_runner.condition.notify()
+
+        # Increment job_id counter
+        webserver.job_counter += 1
+
+        # Return associated job_id
+        return jsonify({
+            "status": "queued",
+            "job_id": job_id
+        })
+
+    return jsonify({"status": "Shutting down"})
 
 
 @webserver.route('/api/diff_from_mean', methods=['POST'])
 def diff_from_mean_request():
-    # TODO
-    # Get request data
-    # Register job. Don't wait for task to finish
-    # Increment job_id counter
-    # Return associated job_id
+    if webserver.tasks_runner.is_running():
+        # Get request data
+        data = request.json
+        print(f"Got request {data}")
 
-    return jsonify({"status": "NotImplemented"})
+        # Register job. Don't wait for task to finish
+        job_id = webserver.job_counter
+        job = ["diff_from_mean", data["question"], job_id]
+        webserver.tasks_runner.job_queue.put(job)
+        webserver.tasks_runner.job_status[job_id] = "running"
+
+        # Notify workers about incoming job
+        with webserver.tasks_runner.condition:
+            webserver.tasks_runner.condition.notify()
+
+        # Increment job_id counter
+        webserver.job_counter += 1
+
+        # Return associated job_id
+        return jsonify({
+            "status": "queued",
+            "job_id": job_id
+        })
+
+    return jsonify({"status": "Shutting down"})
 
 
 @webserver.route('/api/state_diff_from_mean', methods=['POST'])
