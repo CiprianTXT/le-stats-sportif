@@ -78,8 +78,8 @@ class TaskRunner(Thread):
     def exec_state_mean(self, question, state, job_id):
         # Filter table by value in Question and LocationDesc columns
         filtered_table = self.table.loc[
-            (self.table["Question"] == question) & (
-                self.table["LocationDesc"] == state)
+            (self.table["Question"] == question) &
+            (self.table["LocationDesc"] == state)
         ]
 
         # Save the result on disk
@@ -136,6 +136,41 @@ class TaskRunner(Thread):
         # Mark job as done
         self.job_status[job_id] = "done"
 
+    def exec_global_mean(self, question, job_id):
+        # Filter table by value in Question column
+        filtered_table = self.table.loc[self.table["Question"] == question]
+
+        # Save the result on disk
+        result = json.dumps({
+            "global_mean": filtered_table["Data_Value"].mean()
+        })
+        with open(f"./results/job_id_{job_id}.json", "w", encoding="UTF-8") as output_file:
+            output_file.write(result)
+
+        # Mark job as done
+        self.job_status[job_id] = "done"
+
+    def exec_diff_from_mean(self, question, job_id):
+        # Filter table by value in Question column
+        filtered_table = self.table.loc[self.table["Question"] == question]
+        global_avg = filtered_table["Data_Value"].mean()
+
+        # Group filtered table by LocationDesc column values
+        diff_states_avg = []
+        for state, table in filtered_table.groupby("LocationDesc"):
+            diff_states_avg.append((state, global_avg - table["Data_Value"].mean()))
+
+        # Sort data by value
+        diff_states_avg = dict(sorted(diff_states_avg, key=lambda state: state[1], reverse=True))
+
+        # Save the result on disk
+        result = json.dumps(diff_states_avg, sort_keys=False)
+        with open(f"./results/job_id_{job_id}.json", "w", encoding="UTF-8") as output_file:
+            output_file.write(result)
+
+        # Mark job as done
+        self.job_status[job_id] = "done"
+
 
     def run(self):
         # Repeat until graceful_shutdown and empty queue
@@ -158,5 +193,9 @@ class TaskRunner(Thread):
                         self.exec_best5(job[1], job[2])
                     elif request == "worst5":
                         self.exec_worst5(job[1], job[2])
+                    elif request == "global_mean":
+                        self.exec_global_mean(job[1], job[2])
+                    elif request == "diff_from_mean":
+                        self.exec_diff_from_mean(job[1], job[2])
 
         print(f"{self.name} shut down")
