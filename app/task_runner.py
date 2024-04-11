@@ -59,7 +59,7 @@ class TaskRunner(Thread):
     def exec_states_mean(self, question, job_id):
         states_avg = []
 
-        # Filter table by value in Question column and group by state afterwards
+        # Filter table by Question column values and group by state afterwards
         filtered_table = self.table.loc[self.table["Question"] == question]
         for state, table in filtered_table.groupby("LocationDesc"):
             states_avg.append((state, table["Data_Value"].mean()))
@@ -76,7 +76,7 @@ class TaskRunner(Thread):
         self.job_status[job_id] = "done"
 
     def exec_state_mean(self, question, state, job_id):
-        # Filter table by value in Question and LocationDesc columns
+        # Filter table by Question and LocationDesc columns values
         filtered_table = self.table.loc[
             (self.table["Question"] == question) &
             (self.table["LocationDesc"] == state)
@@ -95,7 +95,7 @@ class TaskRunner(Thread):
     def exec_best5(self, question, job_id):
         states_best5 = []
 
-        # Filter table by value in Question column and group by state afterwards
+        # Filter table by Question column values and group by state afterwards
         filtered_table = self.table.loc[self.table["Question"] == question]
         for state, table in filtered_table.groupby("LocationDesc"):
             states_best5.append((state, table["Data_Value"].mean()))
@@ -117,7 +117,7 @@ class TaskRunner(Thread):
     def exec_worst5(self, question, job_id):
         states_worst5 = []
 
-        # Filter table by value in Question column and group by state afterwards
+        # Filter table by Question column values and group by state afterwards
         filtered_table = self.table.loc[self.table["Question"] == question]
         for state, table in filtered_table.groupby("LocationDesc"):
             states_worst5.append((state, table["Data_Value"].mean()))
@@ -137,7 +137,7 @@ class TaskRunner(Thread):
         self.job_status[job_id] = "done"
 
     def exec_global_mean(self, question, job_id):
-        # Filter table by value in Question column
+        # Filter table by Question column values
         filtered_table = self.table.loc[self.table["Question"] == question]
 
         # Save the result on disk
@@ -151,7 +151,7 @@ class TaskRunner(Thread):
         self.job_status[job_id] = "done"
 
     def exec_diff_from_mean(self, question, job_id):
-        # Filter table by value in Question column
+        # Filter table by Question column values
         filtered_table = self.table.loc[self.table["Question"] == question]
         global_avg = filtered_table["Data_Value"].mean()
 
@@ -165,6 +165,61 @@ class TaskRunner(Thread):
 
         # Save the result on disk
         result = json.dumps(diff_states_avg, sort_keys=False)
+        with open(f"./results/job_id_{job_id}.json", "w", encoding="UTF-8") as output_file:
+            output_file.write(result)
+
+        # Mark job as done
+        self.job_status[job_id] = "done"
+
+    def exec_state_diff_from_mean(self, question, state, job_id):
+        # Filter table by Question column values to calculate global mean
+        filtered_table = self.table.loc[self.table["Question"] == question]
+        global_avg = filtered_table["Data_Value"].mean()
+
+        # Further filter the table by LocationDesc column values
+        filtered_table = filtered_table.loc[filtered_table["LocationDesc"] == state]
+
+        # Save the result on disk
+        result = json.dumps({
+            state: global_avg - filtered_table["Data_Value"].mean()
+        })
+        with open(f"./results/job_id_{job_id}.json", "w", encoding="UTF-8") as output_file:
+            output_file.write(result)
+
+        # Mark job as done
+        self.job_status[job_id] = "done"
+
+    def exec_mean_by_category(self, question, job_id):
+        category_mean = {}
+
+        # Filter table by Question column values, then group by
+        filtered_table = self.table.loc[self.table["Question"] == question]
+        for category, table in filtered_table.groupby(["LocationDesc", "StratificationCategory1", "Stratification1"]):
+            category_mean[str(category)] = table["Data_Value"].mean()
+
+        # Save the result on disk
+        result = json.dumps(category_mean)
+        with open(f"./results/job_id_{job_id}.json", "w", encoding="UTF-8") as output_file:
+            output_file.write(result)
+
+        # Mark job as done
+        self.job_status[job_id] = "done"
+
+    def exec_state_mean_by_category(self, question, state, job_id):
+        category_mean = {}
+
+        # Filter table by Question and LocationDesc columns values, then group by
+        filtered_table = self.table.loc[
+            (self.table["Question"] == question) &
+            (self.table["LocationDesc"] == state)
+        ]
+        for category, table in filtered_table.groupby(["StratificationCategory1", "Stratification1"]):
+            category_mean[str(category)] = table["Data_Value"].mean()
+
+        # Save the result on disk
+        result = json.dumps({
+            state: category_mean
+        })
         with open(f"./results/job_id_{job_id}.json", "w", encoding="UTF-8") as output_file:
             output_file.write(result)
 
@@ -197,5 +252,11 @@ class TaskRunner(Thread):
                         self.exec_global_mean(job[1], job[2])
                     elif request == "diff_from_mean":
                         self.exec_diff_from_mean(job[1], job[2])
+                    elif request == "state_diff_from_mean":
+                        self.exec_state_diff_from_mean(job[1], job[2], job[3])
+                    elif request == "mean_by_category":
+                        self.exec_mean_by_category(job[1], job[2])
+                    elif request == "state_mean_by_category":
+                        self.exec_state_mean_by_category(job[1], job[2], job[3])
 
         print(f"{self.name} shut down")
