@@ -5,6 +5,14 @@ from app import webserver
 
 @webserver.route('/api/num_jobs', methods=['GET'])
 def num_jobs_request():
+    """
+    Function that returns the number of jobs currently running.
+
+    Returns:
+        JSON response:
+            - "status": The response status ("done").
+            - "data": The number of jobs currently running.
+    """
     job_status_values = list(webserver.tasks_runner.job_status.values())
     return jsonify({
         "status": "done",
@@ -14,6 +22,14 @@ def num_jobs_request():
 
 @webserver.route('/api/jobs', methods=['GET'])
 def jobs_request():
+    """
+    Function that returns the status of all jobs.
+
+    Returns:
+        JSON response:
+            - "status": The response status ("done").
+            - "data": The list of jobs and their status.
+    """
     jobs = []
     for current_id in range(1, webserver.job_counter):
         current_status = webserver.tasks_runner.job_status[current_id]
@@ -27,6 +43,18 @@ def jobs_request():
 
 @webserver.route('/api/get_results/<job_id>', methods=['GET'])
 def get_results_request(job_id):
+    """
+    Function that returns the result of a specified job.
+
+    Args:
+        job_id (str): The ID of the job for which the result is requested.
+
+    Returns:
+        JSON response:
+            - "status": The response status ("done" or "running").
+            - "data": The result of the job if done.
+            - "reason" (if status is "error"): The reason for the error.
+    """
     job_id = int(job_id)
     print(f"JobID is {job_id}")
 
@@ -52,6 +80,19 @@ def get_results_request(job_id):
 
 @webserver.route('/api/states_mean', methods=['POST'])
 def states_mean_request():
+    """
+    Function that adds a 'states_mean' job to the queue for execution.
+
+    Request JSON:
+        {
+            "question": "Question1"
+        }
+
+    Returns:
+        JSON response:
+            - "status": The response status ("queued" or "Shutting down").
+            - "job_id": The ID of the job added to the queue.
+    """
     if webserver.tasks_runner.is_running():
         # Get request data
         data = request.json
@@ -81,6 +122,20 @@ def states_mean_request():
 
 @webserver.route('/api/state_mean', methods=['POST'])
 def state_mean_request():
+    """
+    Function that adds a 'state_mean' job to the queue for execution.
+
+    Request JSON:
+        {
+            "question": "Question1",
+            "state": "State1"
+        }
+
+    Returns:
+        JSON response:
+            - "status": The response status ("queued" or "Shutting down").
+            - "job_id": The ID of the job added to the queue.
+    """
     if webserver.tasks_runner.is_running():
         # Get request data
         data = request.json
@@ -110,6 +165,19 @@ def state_mean_request():
 
 @webserver.route('/api/best5', methods=['POST'])
 def best5_request():
+    """
+    Function that adds a 'best5' job to the queue for execution.
+
+    Request JSON:
+        {
+            "question": "Question1"
+        }
+
+    Returns:
+        JSON response:
+            - "status": The response status ("queued" or "Shutting down").
+            - "job_id": The ID of the job added to the queue.
+    """
     if webserver.tasks_runner.is_running():
         # Get request data
         data = request.json
@@ -139,6 +207,19 @@ def best5_request():
 
 @webserver.route('/api/worst5', methods=['POST'])
 def worst5_request():
+    """
+    Function that adds a 'worst5' job to the queue for execution.
+
+    Request JSON:
+        {
+            "question": "Question1"
+        }
+
+    Returns:
+        JSON response:
+            - "status": The response status ("queued" or "Shutting down").
+            - "job_id": The ID of the job added to the queue.
+    """
     if webserver.tasks_runner.is_running():
         # Get request data
         data = request.json
@@ -168,6 +249,19 @@ def worst5_request():
 
 @webserver.route('/api/global_mean', methods=['POST'])
 def global_mean_request():
+    """
+    Function that adds a 'global_mean' job to the queue for execution.
+
+    Request JSON:
+        {
+            "question": "Question1"
+        }
+
+    Returns:
+        JSON response:
+            - "status": The response status ("queued" or "Shutting down").
+            - "job_id": The ID of the job added to the queue.
+    """
     if webserver.tasks_runner.is_running():
         # Get request data
         data = request.json
@@ -197,6 +291,19 @@ def global_mean_request():
 
 @webserver.route('/api/diff_from_mean', methods=['POST'])
 def diff_from_mean_request():
+    """
+    Function that adds a 'diff_from_mean' job to the queue for execution.
+
+    Request JSON:
+        {
+            "question": "Question1"
+        }
+
+    Returns:
+        JSON response:
+            - "status": The response status ("queued" or "Shutting down").
+            - "job_id": The ID of the job added to the queue.
+    """
     if webserver.tasks_runner.is_running():
         # Get request data
         data = request.json
@@ -226,6 +333,20 @@ def diff_from_mean_request():
 
 @webserver.route('/api/state_diff_from_mean', methods=['POST'])
 def state_diff_from_mean_request():
+    """
+    Function that adds a 'state_diff_from_mean' job to the queue for execution.
+
+    Request JSON:
+        {
+            "question": "Question1",
+            "state": "State1"
+        }
+
+    Returns:
+        JSON response:
+            - "status": The response status ("queued" or "Shutting down").
+            - "job_id": The ID of the job added to the queue.
+    """
     if webserver.tasks_runner.is_running():
         # Get request data
         data = request.json
@@ -255,6 +376,19 @@ def state_diff_from_mean_request():
 
 @webserver.route('/api/mean_by_category', methods=['POST'])
 def mean_by_category_request():
+    """
+    Function that adds a 'mean_by_category' job to the queue for execution.
+
+    Request JSON:
+        {
+            "question": "Question1"
+        }
+
+    Returns:
+        JSON response:
+            - "status": The response status ("queued" or "Shutting down").
+            - "job_id": The ID of the job added to the queue.
+    """
     if webserver.tasks_runner.is_running():
         # Get request data
         data = request.json
@@ -284,6 +418,20 @@ def mean_by_category_request():
 
 @webserver.route('/api/state_mean_by_category', methods=['POST'])
 def state_mean_by_category_request():
+    """
+    Function that adds a 'state_mean_by_category' job to the queue for execution.
+
+    Request JSON:
+        {
+            "question": "Question1",
+            "state": "State1"
+        }
+
+    Returns:
+        JSON response:
+            - "status": The response status ("queued" or "Shutting down").
+            - "job_id": The ID of the job added to the queue.
+    """
     if webserver.tasks_runner.is_running():
         # Get request data
         data = request.json
@@ -313,8 +461,16 @@ def state_mean_by_category_request():
 
 @webserver.route('/api/graceful_shutdown', methods=['GET'])
 def graceful_shutdown_request():
+    """
+    Function that initiates a graceful shutdown of the thread pool.
+
+    Returns:
+        JSON response:
+            - "status": The response status ("Shutting down").
+    """
     if webserver.tasks_runner.is_running():
         webserver.tasks_runner.shutdown()
+
         # Notify workers about shutdown event
         with webserver.tasks_runner.condition:
             webserver.tasks_runner.condition.notify_all()

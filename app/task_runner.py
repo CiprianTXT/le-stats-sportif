@@ -5,26 +5,34 @@ import json
 
 
 class ThreadPool:
-    def __init__(self, num_of_threads, data_ingestor):
-        # You must implement a ThreadPool of TaskRunners
-        # Your ThreadPool should check if an environment variable TP_NUM_OF_THREADS is defined
-        # If the env var is defined, that is the number of threads to be used by the thread pool
-        # Otherwise, you are to use what the hardware concurrency allows
-        # You are free to write your implementation as you see fit, but
-        # You must NOT:
-        #   * create more threads than the hardware concurrency allows
-        #   * recreate threads for each task
+    """
+    A thread pool for managing multiple TaskRunner instances.
 
-        # Creating an empty job queue
+    The ThreadPool creates and manages a pool of worker threads (TaskRunner instances)
+    for processing jobs.
+
+    Parameters:
+        num_of_threads (int): The number of worker threads to create.
+        data_ingestor (DataIngestor): An object providing access to the data for processing.
+
+    Attributes:
+        job_queue (Queue): A queue containing the jobs to be processed.
+        job_status (dict): A dictionary to store the status of each job.
+        shutdown_notification (list): A flag indicating whether the task runner should shut down.
+        condition (Condition): A threading condition for synchronization.
+    """
+
+    def __init__(self, num_of_threads, data_ingestor):
+        # Initializing job queue
         self.job_queue = Queue()
 
-        # Creating an empty job status dictionary
+        # Initializing job status dictionary
         self.job_status = {}
 
         # Flag for graceful shutdown
         self.shutdown_notification = []
 
-        # Creating a Condition object
+        # Initializing Condition object
         self.condition = Condition()
 
         # Creating and starting the threads
@@ -38,15 +46,46 @@ class ThreadPool:
             worker.start()
 
     def is_running(self):
+        """
+        Checks if the ThreadPool is running.
+
+        Returns:
+            bool: True if the ThreadPool is running, False otherwise.
+        """
         return not self.shutdown_notification
 
     def shutdown(self):
+        """
+        Signals the ThreadPool to shut down gracefully.
+
+        This method appends a True value to the `shutdown_notification` list,
+        indicating to the worker threads to finish processing pending jobs
+        and then shut down.
+
+        Returns:
+            None
+        """
         self.shutdown_notification.append(True)
 
 
 class TaskRunner(Thread):
+    """
+    A class representing a task runner for processing jobs in a threaded environment.
+
+    Parameters:
+        Thread (class): The Thread class from the threading module.
+
+    Attributes:
+        job_queue (Queue): A queue containing the jobs to be processed.
+        job_status (dict): A dictionary to store the status of each job.
+        shutdown_notification (list): A flag indicating whether the task runner should shut down.
+        condition (Condition): A threading condition for synchronization.
+        table (DataFrame): The data table for processing jobs.
+        questions_best_is_min (list): A list of questions where lower values are considered 'best'.
+        questions_best_is_max (list): A list of questions where higher values are considered 'best'.
+    """
+
     def __init__(self, job_queue, job_status, shutdown_notification, condition, data_ingestor):
-        # Initializing necessary data structures
         Thread.__init__(self)
         self.job_queue = job_queue
         self.job_status = job_status
@@ -56,26 +95,56 @@ class TaskRunner(Thread):
         self.questions_best_is_min = data_ingestor.questions_best_is_min
         self.questions_best_is_max = data_ingestor.questions_best_is_max
 
+    def save_job_to_disk(self, result, job_id):
+        """
+        Saves the given result to a JSON file on disk with the "job_id_{job_id}.json" format.
+
+        Parameters:
+            result (dict): The result to be saved.
+            job_id (int): The ID of the job used for naming the resulting JSON file.
+
+        Returns:
+            None
+        """
+        with open(f"./results/job_id_{job_id}.json", "w", encoding="UTF-8") as output_file:
+            json.dump(result, output_file, sort_keys=False)
+
     def exec_states_mean(self, question, job_id):
-        states_avg = []
+        """
+        Executes the job to calculate the mean values for states based on a given question.
+
+        Parameters:
+            question (str): The question for which to calculate the means.
+            job_id (int): The ID of the job.
+
+        Returns:
+            None
+        """
+        states_mean = []
 
         # Filter table by Question column values and group by state afterwards
         filtered_table = self.table.loc[self.table["Question"] == question]
         for state, table in filtered_table.groupby("LocationDesc"):
-            states_avg.append((state, table["Data_Value"].mean()))
+            states_mean.append((state, table["Data_Value"].mean()))
 
         # Sort data by value
-        states_avg = dict(sorted(states_avg, key=lambda state: state[1]))
+        states_mean = dict(sorted(states_mean, key=lambda state: state[1]))
 
         # Save the result on disk
-        result = json.dumps(states_avg, sort_keys=False)
-        with open(f"./results/job_id_{job_id}.json", "w", encoding="UTF-8") as output_file:
-            output_file.write(result)
-
-        # Mark job as done
-        self.job_status[job_id] = "done"
+        self.save_job_to_disk(states_mean, job_id)
 
     def exec_state_mean(self, question, state, job_id):
+        """
+        Executes the job to calculate the mean value for a specific state and question.
+
+        Parameters:
+            question (str): The question for which to calculate the mean.
+            state (str): The state for which to calculate the mean.
+            job_id (int): The ID of the job.
+
+        Returns:
+            None
+        """
         # Filter table by Question and LocationDesc columns values
         filtered_table = self.table.loc[
             (self.table["Question"] == question) &
@@ -83,16 +152,20 @@ class TaskRunner(Thread):
         ]
 
         # Save the result on disk
-        result = json.dumps({
-            state: filtered_table["Data_Value"].mean()
-        })
-        with open(f"./results/job_id_{job_id}.json", "w", encoding="UTF-8") as output_file:
-            output_file.write(result)
+        self.save_job_to_disk({state: filtered_table["Data_Value"].mean()}, job_id)
 
-        # Mark job as done
-        self.job_status[job_id] = "done"
+    def exec_top5(self, question, job_id, best=True):
+        """
+        Executes the job to calculate the top 5 best or worst states based on a given question.
 
-    def exec_best5(self, question, job_id):
+        Parameters:
+            question (str): The question for which to calculate the top 5 states.
+            job_id (int): The ID of the job.
+            best (bool): Flag indicating whether to calculate the top 5 best (True) or worst (False) states.
+
+        Returns:
+            None
+        """
         states_best5 = []
 
         # Filter table by Question column values and group by state afterwards
@@ -100,131 +173,124 @@ class TaskRunner(Thread):
         for state, table in filtered_table.groupby("LocationDesc"):
             states_best5.append((state, table["Data_Value"].mean()))
 
-        # Sort data by value depending on the question
+        # Sort data by value depending on the question and best/worst case
         if question in self.questions_best_is_min:
-            states_best5 = dict(sorted(states_best5, key=lambda state: state[1])[:5])
+            states_best5 = dict(sorted(states_best5, key=lambda state: state[1], reverse=not best)[:5])
         else:
-            states_best5 = dict(sorted(states_best5, key=lambda state: state[1], reverse=True)[:5])
+            states_best5 = dict(sorted(states_best5, key=lambda state: state[1], reverse=best)[:5])
 
         # Save the result on disk
-        result = json.dumps(states_best5, sort_keys=False)
-        with open(f"./results/job_id_{job_id}.json", "w", encoding="UTF-8") as output_file:
-            output_file.write(result)
-
-        # Mark job as done
-        self.job_status[job_id] = "done"
-
-    def exec_worst5(self, question, job_id):
-        states_worst5 = []
-
-        # Filter table by Question column values and group by state afterwards
-        filtered_table = self.table.loc[self.table["Question"] == question]
-        for state, table in filtered_table.groupby("LocationDesc"):
-            states_worst5.append((state, table["Data_Value"].mean()))
-
-        # Sort data by value depending on the question
-        if question in self.questions_best_is_min:
-            states_worst5 = dict(sorted(states_worst5, key=lambda state: state[1], reverse=True)[:5])
-        else:
-            states_worst5 = dict(sorted(states_worst5, key=lambda state: state[1])[:5])
-
-        # Save the result on disk
-        result = json.dumps(states_worst5, sort_keys=False)
-        with open(f"./results/job_id_{job_id}.json", "w", encoding="UTF-8") as output_file:
-            output_file.write(result)
-
-        # Mark job as done
-        self.job_status[job_id] = "done"
+        self.save_job_to_disk(states_best5, job_id)
 
     def exec_global_mean(self, question, job_id):
+        """
+        Executes the job to calculate the global mean value for a given question.
+
+        Parameters:
+            question (str): The question for which to calculate the global mean.
+            job_id (int): The ID of the job.
+
+        Returns:
+            None
+        """
         # Filter table by Question column values
         filtered_table = self.table.loc[self.table["Question"] == question]
 
         # Save the result on disk
-        result = json.dumps({
-            "global_mean": filtered_table["Data_Value"].mean()
-        })
-        with open(f"./results/job_id_{job_id}.json", "w", encoding="UTF-8") as output_file:
-            output_file.write(result)
-
-        # Mark job as done
-        self.job_status[job_id] = "done"
+        self.save_job_to_disk({"global_mean": filtered_table["Data_Value"].mean()}, job_id)
 
     def exec_diff_from_mean(self, question, job_id):
+        """
+        Executes the job to calculate the difference of each state's mean value from the global mean.
+
+        Parameters:
+            question (str): The question for which to calculate the differences.
+            job_id (int): The ID of the job.
+
+        Returns:
+            None
+        """
         # Filter table by Question column values
         filtered_table = self.table.loc[self.table["Question"] == question]
-        global_avg = filtered_table["Data_Value"].mean()
+        global_mean = filtered_table["Data_Value"].mean()
 
         # Group filtered table by LocationDesc column values
-        diff_states_avg = []
+        diff_states_mean = []
         for state, table in filtered_table.groupby("LocationDesc"):
-            diff_states_avg.append((state, global_avg - table["Data_Value"].mean()))
+            diff_states_mean.append((state, global_mean - table["Data_Value"].mean()))
 
         # Sort data by value
-        diff_states_avg = dict(sorted(diff_states_avg, key=lambda state: state[1], reverse=True))
+        diff_states_mean = dict(sorted(diff_states_mean, key=lambda state: state[1], reverse=True))
 
         # Save the result on disk
-        result = json.dumps(diff_states_avg, sort_keys=False)
-        with open(f"./results/job_id_{job_id}.json", "w", encoding="UTF-8") as output_file:
-            output_file.write(result)
-
-        # Mark job as done
-        self.job_status[job_id] = "done"
+        self.save_job_to_disk(diff_states_mean, job_id)
 
     def exec_state_diff_from_mean(self, question, state, job_id):
+        """
+        Executes the job to calculate the difference of a specific state's mean value and the global mean.
+
+        Parameters:
+            question (str): The question for which to calculate the difference.
+            state (str): The state for which to calculate the difference.
+            job_id (int): The ID of the job.
+
+        Returns:
+            None
+        """
         # Filter table by Question column values to calculate global mean
         filtered_table = self.table.loc[self.table["Question"] == question]
-        global_avg = filtered_table["Data_Value"].mean()
+        global_mean = filtered_table["Data_Value"].mean()
 
         # Further filter the table by LocationDesc column values
         filtered_table = filtered_table.loc[filtered_table["LocationDesc"] == state]
 
         # Save the result on disk
-        result = json.dumps({
-            state: global_avg - filtered_table["Data_Value"].mean()
-        })
-        with open(f"./results/job_id_{job_id}.json", "w", encoding="UTF-8") as output_file:
-            output_file.write(result)
-
-        # Mark job as done
-        self.job_status[job_id] = "done"
+        self.save_job_to_disk({state: global_mean - filtered_table["Data_Value"].mean()}, job_id)
 
     def exec_mean_by_category(self, question, job_id):
+        """
+        Executes the job to calculate the mean values by category for a given question.
+
+        Parameters:
+            question (str): The question for which to calculate the means.
+            job_id (int): The ID of the job.
+
+        Returns:
+            None
+        """
         category_mean = {}
 
-        # Filter table by Question column values, then group by
+        # Filter table by Question column values, then group by categories
         filtered_table = self.table.loc[self.table["Question"] == question]
         for category, table in filtered_table.groupby(["LocationDesc", "StratificationCategory1", "Stratification1"]):
             category_mean[str(category)] = table["Data_Value"].mean()
 
         # Save the result on disk
-        result = json.dumps(category_mean)
-        with open(f"./results/job_id_{job_id}.json", "w", encoding="UTF-8") as output_file:
-            output_file.write(result)
-
-        # Mark job as done
-        self.job_status[job_id] = "done"
+        self.save_job_to_disk(category_mean, job_id)
 
     def exec_state_mean_by_category(self, question, state, job_id):
+        """
+        Executes the job to calculate the mean values by category for a specific state and question.
+
+        Parameters:
+            question (str): The question for which to calculate the means.
+            state (str): The state for which to calculate the means.
+            job_id (int): The ID of the job.
+
+        Returns:
+            None
+        """
         category_mean = {}
 
-        # Filter table by Question and LocationDesc columns values, then group by
+        # Filter table by Question and LocationDesc columns values, then group by categories
         filtered_table = self.table.loc[
-            (self.table["Question"] == question) &
-            (self.table["LocationDesc"] == state)
+            (self.table["Question"] == question) & (self.table["LocationDesc"] == state)
         ]
         for category, table in filtered_table.groupby(["StratificationCategory1", "Stratification1"]):
             category_mean[str(category)] = table["Data_Value"].mean()
 
         # Save the result on disk
-        result = json.dumps({
-            state: category_mean
-        })
-        with open(f"./results/job_id_{job_id}.json", "w", encoding="UTF-8") as output_file:
-            output_file.write(result)
-
-        # Mark job as done
-        self.job_status[job_id] = "done"
+        self.save_job_to_disk({state: category_mean}, job_id)
 
 
     def run(self):
@@ -245,9 +311,9 @@ class TaskRunner(Thread):
                     elif request == "state_mean":
                         self.exec_state_mean(job[1], job[2], job[3])
                     elif request == "best5":
-                        self.exec_best5(job[1], job[2])
+                        self.exec_top5(job[1], job[2])
                     elif request == "worst5":
-                        self.exec_worst5(job[1], job[2])
+                        self.exec_top5(job[1], job[2], best=False)
                     elif request == "global_mean":
                         self.exec_global_mean(job[1], job[2])
                     elif request == "diff_from_mean":
@@ -258,5 +324,8 @@ class TaskRunner(Thread):
                         self.exec_mean_by_category(job[1], job[2])
                     elif request == "state_mean_by_category":
                         self.exec_state_mean_by_category(job[1], job[2], job[3])
+
+                    # Mark job as done
+                    self.job_status[job[-1]] = "done"
 
         print(f"{self.name} shut down")

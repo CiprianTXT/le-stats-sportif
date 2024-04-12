@@ -1,6 +1,20 @@
 from pandas import read_csv
 
 class DataIngestor:
+    """
+    A class for ingesting data from a CSV file.
+
+    This class reads a CSV file from the given path and provides methods for accessing and analyzing the data.
+
+    Parameters:
+        csv_path (str): The file path to the CSV file to be ingested.
+
+    Attributes:
+        table (DataFrame): The main DataFrame containing the ingested data.
+        questions_best_is_min (list): A list of questions where lower values are considered 'best'.
+        questions_best_is_max (list): A list of questions where higher values are considered 'best'.
+    """
+
     def __init__(self, csv_path: str):
         # Read csv from csv_path
         self.table = read_csv(csv_path)
