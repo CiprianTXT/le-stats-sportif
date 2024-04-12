@@ -1,6 +1,5 @@
 from queue import Queue
 from threading import Thread, Condition
-import time
 import json
 
 
@@ -14,6 +13,7 @@ class ThreadPool:
     Parameters:
         num_of_threads (int): The number of worker threads to create.
         data_ingestor (DataIngestor): An object providing access to the data for processing.
+        logger (Logger): An object providing access to the logger.
 
     Attributes:
         job_queue (Queue): A queue containing the jobs to be processed.
@@ -22,7 +22,9 @@ class ThreadPool:
         condition (Condition): A threading condition for synchronization.
     """
 
-    def __init__(self, num_of_threads, data_ingestor):
+    def __init__(self, num_of_threads, data_ingestor, logger):
+        logger.info("Initializing thread pool")
+
         # Initializing job queue
         self.job_queue = Queue()
 
@@ -42,7 +44,10 @@ class ThreadPool:
                 self.job_status,
                 self.shutdown_notification,
                 self.condition,
-                data_ingestor)
+                data_ingestor,
+                logger
+            )
+            logger.info(f"Starting {worker.name}")
             worker.start()
 
     def is_running(self):
@@ -85,7 +90,7 @@ class TaskRunner(Thread):
         questions_best_is_max (list): A list of questions where higher values are considered 'best'.
     """
 
-    def __init__(self, job_queue, job_status, shutdown_notification, condition, data_ingestor):
+    def __init__(self, job_queue, job_status, shutdown_notification, condition, data_ingestor, logger):
         Thread.__init__(self)
         self.job_queue = job_queue
         self.job_status = job_status
@@ -94,6 +99,7 @@ class TaskRunner(Thread):
         self.table = data_ingestor.table
         self.questions_best_is_min = data_ingestor.questions_best_is_min
         self.questions_best_is_max = data_ingestor.questions_best_is_max
+        self.logger = logger
 
     def save_job_to_disk(self, result, job_id):
         """
@@ -294,6 +300,7 @@ class TaskRunner(Thread):
 
 
     def run(self):
+        self.logger.info(f"Started successfully. Waiting for work")
         # Repeat until graceful_shutdown and empty queue
         with self.condition:
             while not (self.shutdown_notification and self.job_queue.empty()):
