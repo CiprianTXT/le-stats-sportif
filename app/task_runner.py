@@ -166,21 +166,21 @@ class TaskRunner(Thread):
         Returns:
             None
         """
-        states_best5 = []
+        states_top5 = []
 
         # Filter table by Question column values and group by state afterwards
         filtered_table = self.table.loc[self.table["Question"] == question]
         for state, table in filtered_table.groupby("LocationDesc"):
-            states_best5.append((state, table["Data_Value"].mean()))
+            states_top5.append((state, table["Data_Value"].mean()))
 
         # Sort data by value depending on the question and best/worst case
         if question in self.questions_best_is_min:
-            states_best5 = dict(sorted(states_best5, key=lambda state: state[1], reverse=not best)[:5])
+            states_top5 = dict(sorted(states_top5, key=lambda state: state[1], reverse=not best)[:5])
         else:
-            states_best5 = dict(sorted(states_best5, key=lambda state: state[1], reverse=best)[:5])
+            states_top5 = dict(sorted(states_top5, key=lambda state: state[1], reverse=best)[:5])
 
         # Save the result on disk
-        self.save_job_to_disk(states_best5, job_id)
+        self.save_job_to_disk(states_top5, job_id)
 
     def exec_global_mean(self, question, job_id):
         """
