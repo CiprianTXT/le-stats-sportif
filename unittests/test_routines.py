@@ -57,7 +57,7 @@ class TestExecRoutines(unittest.TestCase):
             test_id
         )
         self.result_checker(test_id)
-#
+
     def test_exec_best5(self):
         test_id = 3
         self.task_runner.exec_top5(
