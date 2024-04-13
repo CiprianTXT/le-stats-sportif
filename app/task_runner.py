@@ -1,6 +1,6 @@
+import json
 from queue import Queue
 from threading import Thread, Condition
-import json
 
 
 class ThreadPool:
@@ -23,8 +23,6 @@ class ThreadPool:
     """
 
     def __init__(self, num_of_threads, data_ingestor, logger):
-        logger.info("Initializing thread pool")
-
         # Initializing job queue
         self.job_queue = Queue()
 
@@ -47,7 +45,7 @@ class ThreadPool:
                 data_ingestor,
                 logger
             )
-            logger.info(f"Starting {worker.name}")
+            logger.info("Starting %s", worker.name)
             worker.start()
 
     def is_running(self):
@@ -88,6 +86,7 @@ class TaskRunner(Thread):
         table (DataFrame): The data table for processing jobs.
         questions_best_is_min (list): A list of questions where lower values are considered 'best'.
         questions_best_is_max (list): A list of questions where higher values are considered 'best'.
+        logger (Logger): An object providing access to the logger.
     """
 
     def __init__(self, job_queue, job_status, shutdown_notification, condition, data_ingestor, logger):
@@ -126,6 +125,8 @@ class TaskRunner(Thread):
         Returns:
             None
         """
+        self.logger.info("Executing job with id %s, input: '%s'", job_id, question)
+
         states_mean = []
 
         # Filter table by Question column values and group by state afterwards
@@ -139,6 +140,8 @@ class TaskRunner(Thread):
         # Save the result on disk
         self.save_job_to_disk(states_mean, job_id)
 
+        self.logger.info("Result %s saved on disk", states_mean)
+
     def exec_state_mean(self, question, state, job_id):
         """
         Executes the job to calculate the mean value for a specific state and question.
@@ -151,6 +154,8 @@ class TaskRunner(Thread):
         Returns:
             None
         """
+        self.logger.info("Executing job with id %s, input: '%s', '%s'", job_id, question, state)
+
         # Filter table by Question and LocationDesc columns values
         filtered_table = self.table.loc[
             (self.table["Question"] == question) &
@@ -158,7 +163,10 @@ class TaskRunner(Thread):
         ]
 
         # Save the result on disk
-        self.save_job_to_disk({state: filtered_table["Data_Value"].mean()}, job_id)
+        state_mean = {state: filtered_table["Data_Value"].mean()}
+        self.save_job_to_disk(state_mean, job_id)
+
+        self.logger.info("Result %s saved on disk", state_mean)
 
     def exec_top5(self, question, job_id, best=True):
         """
@@ -172,6 +180,8 @@ class TaskRunner(Thread):
         Returns:
             None
         """
+        self.logger.info("Executing job with id %s, %s case, input: '%s'", job_id, 'best' if best is True else 'worst', question)
+
         states_top5 = []
 
         # Filter table by Question column values and group by state afterwards
@@ -188,6 +198,8 @@ class TaskRunner(Thread):
         # Save the result on disk
         self.save_job_to_disk(states_top5, job_id)
 
+        self.logger.info("Result %s saved on disk", states_top5)
+
     def exec_global_mean(self, question, job_id):
         """
         Executes the job to calculate the global mean value for a given question.
@@ -199,11 +211,16 @@ class TaskRunner(Thread):
         Returns:
             None
         """
+        self.logger.info("Executing job with id %s, input: '%s'", job_id, question)
+
         # Filter table by Question column values
         filtered_table = self.table.loc[self.table["Question"] == question]
 
         # Save the result on disk
-        self.save_job_to_disk({"global_mean": filtered_table["Data_Value"].mean()}, job_id)
+        global_mean = {"global_mean": filtered_table["Data_Value"].mean()}
+        self.save_job_to_disk(global_mean, job_id)
+
+        self.logger.info("Result %s saved on disk", global_mean)
 
     def exec_diff_from_mean(self, question, job_id):
         """
@@ -216,6 +233,8 @@ class TaskRunner(Thread):
         Returns:
             None
         """
+        self.logger.info("Executing job with id %s, input: '%s'", job_id, question)
+
         # Filter table by Question column values
         filtered_table = self.table.loc[self.table["Question"] == question]
         global_mean = filtered_table["Data_Value"].mean()
@@ -231,6 +250,8 @@ class TaskRunner(Thread):
         # Save the result on disk
         self.save_job_to_disk(diff_states_mean, job_id)
 
+        self.logger.info("Result %s saved on disk", diff_states_mean)
+
     def exec_state_diff_from_mean(self, question, state, job_id):
         """
         Executes the job to calculate the difference of a specific state's mean value and the global mean.
@@ -243,6 +264,8 @@ class TaskRunner(Thread):
         Returns:
             None
         """
+        self.logger.info("Executing job with id %s, input: '%s', '%s'", job_id, question, state)
+
         # Filter table by Question column values to calculate global mean
         filtered_table = self.table.loc[self.table["Question"] == question]
         global_mean = filtered_table["Data_Value"].mean()
@@ -251,7 +274,10 @@ class TaskRunner(Thread):
         filtered_table = filtered_table.loc[filtered_table["LocationDesc"] == state]
 
         # Save the result on disk
-        self.save_job_to_disk({state: global_mean - filtered_table["Data_Value"].mean()}, job_id)
+        state_diff_states_mean = {state: global_mean - filtered_table["Data_Value"].mean()}
+        self.save_job_to_disk(state_diff_states_mean, job_id)
+
+        self.logger.info("Result %s saved on disk", state_diff_states_mean)
 
     def exec_mean_by_category(self, question, job_id):
         """
@@ -264,6 +290,8 @@ class TaskRunner(Thread):
         Returns:
             None
         """
+        self.logger.info("Executing job with id %s, input: '%s'", job_id, question)
+
         category_mean = {}
 
         # Filter table by Question column values, then group by categories
@@ -273,6 +301,8 @@ class TaskRunner(Thread):
 
         # Save the result on disk
         self.save_job_to_disk(category_mean, job_id)
+
+        self.logger.info("Result %s saved on disk", category_mean)
 
     def exec_state_mean_by_category(self, question, state, job_id):
         """
@@ -286,53 +316,63 @@ class TaskRunner(Thread):
         Returns:
             None
         """
-        category_mean = {}
+        self.logger.info("Executing job with id %s, input: '%s', '%s'", job_id, question, state)
+
+        state_category_mean = {}
 
         # Filter table by Question and LocationDesc columns values, then group by categories
         filtered_table = self.table.loc[
             (self.table["Question"] == question) & (self.table["LocationDesc"] == state)
         ]
         for category, table in filtered_table.groupby(["StratificationCategory1", "Stratification1"]):
-            category_mean[str(category)] = table["Data_Value"].mean()
+            state_category_mean[str(category)] = table["Data_Value"].mean()
 
         # Save the result on disk
-        self.save_job_to_disk({state: category_mean}, job_id)
+        self.save_job_to_disk({state: state_category_mean}, job_id)
+
+        self.logger.info("Result %s saved on disk", state_category_mean)
 
 
     def run(self):
-        self.logger.info(f"Started successfully. Waiting for work")
+        self.logger.info("Started successfully")
+
         # Repeat until graceful_shutdown and empty queue
         with self.condition:
             while not (self.shutdown_notification and self.job_queue.empty()):
                 # Put all workers on hold as long as there are no jobs
                 if self.job_queue.empty():
+                    self.logger.info("No pending jobs, waiting")
                     self.condition.wait()
+                    self.logger.info("Received wake up notification from dispatcher")
                 else:
                     # Get pending job
                     job = self.job_queue.get()
+                    request = job[0]
+                    data = job[1]
+                    job_id = job[2]
+                    self.logger.info("Got job '%s', %s with id %s", request, data, job_id)
 
                     # Execute the job and save the result to disk
-                    request = job[0]
                     if request == "states_mean":
-                        self.exec_states_mean(job[1], job[2])
+                        self.exec_states_mean(data[0], job_id)
                     elif request == "state_mean":
-                        self.exec_state_mean(job[1], job[2], job[3])
+                        self.exec_state_mean(data[0], data[1], job_id)
                     elif request == "best5":
-                        self.exec_top5(job[1], job[2])
+                        self.exec_top5(data[0], job_id)
                     elif request == "worst5":
-                        self.exec_top5(job[1], job[2], best=False)
+                        self.exec_top5(data[0], job_id, best=False)
                     elif request == "global_mean":
-                        self.exec_global_mean(job[1], job[2])
+                        self.exec_global_mean(data[0], job_id)
                     elif request == "diff_from_mean":
-                        self.exec_diff_from_mean(job[1], job[2])
+                        self.exec_diff_from_mean(data[0], job_id)
                     elif request == "state_diff_from_mean":
-                        self.exec_state_diff_from_mean(job[1], job[2], job[3])
+                        self.exec_state_diff_from_mean(data[0], data[1], job_id)
                     elif request == "mean_by_category":
-                        self.exec_mean_by_category(job[1], job[2])
+                        self.exec_mean_by_category(data[0], job_id)
                     elif request == "state_mean_by_category":
-                        self.exec_state_mean_by_category(job[1], job[2], job[3])
+                        self.exec_state_mean_by_category(data[0], data[1], job_id)
 
                     # Mark job as done
                     self.job_status[job[-1]] = "done"
-
-        print(f"{self.name} shut down")
+                    self.logger.info("Finished job with id %s", job_id)
+            self.logger.info("Shutting down")
