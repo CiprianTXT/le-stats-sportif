@@ -3,6 +3,7 @@ __pycache__/
 
 *.so
 
+logs/
 results/
 
 venv/
