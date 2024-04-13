@@ -1,10 +1,10 @@
+import os
+import logging
 import logging.handlers
+import time
 from flask import Flask
 from app.data_ingestor import DataIngestor
 from app.task_runner import ThreadPool
-import os
-import logging
-import time
 
 # Creating the logs folder if not present
 if not os.path.exists("./logs"):
@@ -18,13 +18,15 @@ file_handler = logging.handlers.RotatingFileHandler(
     backupCount=10,
     encoding="utf-8"
 )
-format = logging.Formatter("[%(asctime)s %(threadName)s %(levelname)s]: %(message)s")
-format.converter = time.gmtime
-file_handler.setFormatter(format)
+logger_format = logging.Formatter(
+    "[%(asctime)s %(levelname)s] %(threadName)s.%(funcName)s(): %(message)s"
+)
+logger_format.converter = time.gmtime
+file_handler.setFormatter(logger_format)
 logger.addHandler(file_handler)
 logger.setLevel(logging.INFO)
 
-logger.info("Starting server")
+logger.info("****************************** Starting server ******************************")
 
 # Creating the results folder if not present
 if not os.path.exists("./results"):
@@ -43,6 +45,7 @@ webserver.logger = logger
 logger.info("Importing CSV data")
 webserver.data_ingestor = DataIngestor("./nutrition_activity_obesity_usa_subset.csv")
 
+logger.info("Initializing thread pool")
 webserver.tasks_runner = ThreadPool(num_of_threads, webserver.data_ingestor, logger)
 
 webserver.job_counter = 1
