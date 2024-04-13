@@ -111,7 +111,7 @@ class TaskRunner(Thread):
         Returns:
             None
         """
-        with open(f"./results/job_id_{job_id}.json", "w", encoding="UTF-8") as output_file:
+        with open(f"./results/job_id_{job_id}.json", "w", encoding="utf-8") as output_file:
             json.dump(result, output_file, sort_keys=False)
 
     def exec_states_mean(self, question, job_id):

@@ -130,7 +130,7 @@ def get_results_request(job_id):
 
     # Check if job_id is done and return the data
     if webserver.tasks_runner.job_status[job_id] == "done":
-        with open(f"./results/job_id_{job_id}.json", encoding="UTF-8") as file:
+        with open(f"./results/job_id_{job_id}.json", encoding="utf-8") as file:
             data = json.load(file)
         result = {
             "status": "done",
