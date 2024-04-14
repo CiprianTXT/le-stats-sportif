@@ -1,7 +1,7 @@
 # Tema 1 ASC - Le Stats Sportif
 
 În cadrul acestei teme am avut de implementat un server în Python, folosind framework-ul Flask, care poate gestiona cereri HTTP, pornind de la un set de date în format CSV (Comma-separated values). În urma acestor request-uri, serverul prelucrează datele din CSV obținând statistici pe care le oferă ulterior clientului.
-De asemenea, pentru a testa corectitudinea rezultatelor oferite de server, am mai avut de implementat un script de Unittest, tot în Python.
+De asemenea, pentru a testa corectitudinea rezultatelor oferite de server, am mai avut de implementat un script de Unittesting, tot în Python.
 
 ## Implementare
 ### app/
@@ -12,15 +12,15 @@ De asemenea, pentru a testa corectitudinea rezultatelor oferite de server, am ma
     - dimensiunea maximă a unui fișier de log va fi de 1 MB;
     - numărul maxim de fișiere de log va fi de 10;
     - fișierele vor fi encodate UTF-8;
-    - am setat nivel de logging pe INFO.
+    - am setat nivelul de logging pe INFO.
 
-    Ulterior, am verificat ca folder-ul `results`, după care am ales numărul de thread-uri pe care serverul îl va avea în funcție de variabila de mediu `TP_NUM_OF_THREADS`.
+    Ulterior, am verificat ca folder-ul `results` să existe, după care am ales numărul de thread-uri pe care serverul îl va avea, în funcție de variabila de mediu `TP_NUM_OF_THREADS`.
 
-    În final, am pornit serverul de Flask, împreună cu DataIngestor-ul și cu TaskPool-ul (pe care le-am logat). Job counter-ul a fost inițializat cu valoarea 1.
+    În final, am pornit serverul Flask, împreună cu DataIngestor-ul și cu TaskPool-ul (pe care le-am logat). Job counter-ul a fost inițializat cu valoarea 1.
 
 - ### data_ingestor.py:
 
-    Conține clasa DataIngestor, care se ocupa cu citirea datelor din CSV. Pentru asta am folosit funcția `read_csv()` din modulul `pandas`. Tot în cadrul acestei clase sunt definite întrebările din cadrul tabelului citit anterior, categorisite în funcție de valorile cele mai bune.
+    Conține clasa DataIngestor, care se ocupă cu citirea datelor din CSV. Pentru asta am folosit funcția `read_csv()` din modulul `pandas`. Tot în cadrul acestei clase sunt definite întrebările din tabelul citit anterior, categorisite în funcție de valorile cele mai bune.
 
 - ### routes.py:
 
@@ -35,7 +35,7 @@ De asemenea, pentru a testa corectitudinea rezultatelor oferite de server, am ma
 
     3. /api/get_results/<job_id>
 
-        Accesează fișierul JSON rezultat în urma execuției job-ului cerut în request. Dacă `job_id` nu se află în intervalul [1, job_counter), atunci acesta este invalid, fiind trimis spre client un răspuns de eroare. Dacă în urma verificării dicționarului, job-ul este marcat ca "running", atunci se returnează un mesaj cu status-ul "running".
+        Accesează fișierul JSON rezultat în urma execuției job-ului cerut în request. Dacă `job_id` nu se află în intervalul `[1, job_counter)`, atunci acesta este invalid, fiind trimis spre client un răspuns de eroare. Dacă în urma verificării dicționarului, job-ul este marcat ca "running", atunci se returnează un mesaj cu status-ul "running".
 
     4. /api/states_mean
 
@@ -75,7 +75,7 @@ De asemenea, pentru a testa corectitudinea rezultatelor oferite de server, am ma
 
     13. /api/graceful_shutdown
 
-        Oprește thread pool-ul prin apelarea metodei `shutdown()` din clasa ThreadPool și trezește toate thread-urile care așteaptă sarcini noi folosind `condition.notify_all()`, astfel încât acestea se vor opri în lispa unor job-uri în coada de execuție. Se va returna, în cele din urmă, un răspuns JSON care atenționează clientul că serverul se oprește.
+        Dacă thread pool-ul este pornit, atunci acesta va fi oprit prin apelarea metodei `shutdown()` din clasa ThreadPool, apoi toate thread-urile care așteaptă sarcini noi vor fi trezite folosind `condition.notify_all()`, astfel încât acestea se vor opri în lispa unor job-uri în coada de execuție. Se va returna, în cele din urmă, un răspuns JSON care atenționează clientul că serverul se oprește.
 
     După cum se poate observa, rutele 4-12 funcționează similar, aproape identic. Astfel, am definit decoratorul `request_handler()` care primește tipul de request și execută pașii descriși mai sus.
 
@@ -87,7 +87,7 @@ De asemenea, pentru a testa corectitudinea rezultatelor oferite de server, am ma
 
     Aici îmi inițializez coada de execuție a sarcinilor, dicționarul cu status-ul job-urilor înregistrate în thread pool, lista pe care o folosesc pentru a înregistra un shut down event (fiind un obiect mutabil este ușor de partajat cu toate thread-urile) și instanța clasei Condition.
 
-    Pentru lizibilitate, am definit 2 metode: `is_running()` și `shutdown()`. Prima metodă verifică dacă lista asociată event-ului de shut down conține elemente, iar a doua adaugă în listă un element (imediat vizibil pentru toate thread-urile).
+    Pentru lizibilitate, am definit 2 metode: `is_running()` și `shutdown()`. Prima metodă verifică dacă lista asociată event-ului de shut down conține elemente, iar a doua adaugă în aceeași listă un element (imediat vizibil pentru toate thread-urile).
 
     În TaskRunner primesc coada de job-uri, dicționarul cu status-ul job-urilor, notificarea de shutdown, instanța clasei Condition, instanța clasei DataIngestor cu datele citite din CSV și obiectul de log cu care înregistrez parcursul execuțiilor din program. Această clasă conține toate rutinele de execuție folosite pentru a prelucra datele din tabel în funcție de query-ul primit de la client.
     1. run()
